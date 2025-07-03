@@ -15,7 +15,7 @@
                 "logDriver": "awslogs",
                 "options": {
                     "awslogs-group": "/ecs/nestjs-task",
-                    "awslogs-region": "${AWS_REGION}",
+                    "awslogs-region": "ap-southeast-1",
                     "awslogs-stream-prefix": "ecs"
                 }
             }
