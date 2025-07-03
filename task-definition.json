@@ -16,7 +16,8 @@
                 "options": {
                     "awslogs-group": "/ecs/nestjs-task",
                     "awslogs-region": "ap-southeast-1",
-                    "awslogs-stream-prefix": "ecs"
+                    "awslogs-stream-prefix": "ecs",
+                    "awslogs-create-group": "true"
                 }
             }
         }
