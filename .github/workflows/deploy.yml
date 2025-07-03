@@ -1,4 +1,4 @@
-name: CI/CD NestJS → AWS ECS
+name: Deploy NestJS to AWS ECS (Fargate)
 
 on:
     push:
@@ -7,15 +7,13 @@ on:
 jobs:
     build-and-deploy:
         runs-on: ubuntu-latest
+
         steps:
+            # 1) ดึงโค้ด
             - name: Checkout code
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
-            - name: Set up Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 18
-
+            # 2) ตั้งค่า AWS Credentials (ดึงจาก GitHub Secrets)
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v1
               with:
@@ -23,25 +21,34 @@ jobs:
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   aws-region: ${{ secrets.AWS_REGION }}
 
+            # 3) Login เข้า Amazon ECR
             - name: Login to Amazon ECR
               id: login-ecr
-              uses: aws-actions/amazon-ecr-login@v1
+              uses: aws-actions/amazon-ecr-login@v2
 
-            - name: Build, tag, and push Docker image to ECR
-              env:
-                  ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-                  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-                  IMAGE_TAG: ${{ github.sha }}
+            # 4) Build → Tag → Push Docker image
+            - name: Build, tag, and push image to ECR
               run: |
-                  docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-                  docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                  IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+                  docker build -t $IMAGE_URI .
+                  docker push $IMAGE_URI
+              env:
+                  DOCKER_BUILDKIT: 1
 
-            - name: Deploy to ECS service
+            # 5) Render task definition (แทนที่ image URI ให้ตรง tag)
+            - name: Render new task definition
+              id: render
+              uses: aws-actions/amazon-ecs-render-task-definition@v1
+              with:
+                  task-definition: task-definition.json # แม่แบบด้านล่าง
+                  container-name: ${{ secrets.CONTAINER_NAME }}
+                  image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+
+            # 6) Deploy ไป ECS Service
+            - name: Deploy to Amazon ECS
               uses: aws-actions/amazon-ecs-deploy-task-definition@v1
               with:
-                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: ${{ secrets.AWS_REGION }}
+                  task-definition: ${{ steps.render.outputs.task-definition }}
                   cluster: ${{ secrets.ECS_CLUSTER }}
                   service: ${{ secrets.ECS_SERVICE }}
-                  image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+                  wait-for-service-stability: true
