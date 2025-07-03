@@ -7,7 +7,7 @@
     "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskExecutionRole",
     "containerDefinitions": [
         {
-            "name": "nestjs-app",
+            "name": "prototype-nestjs-aws",
             "image": "PLACEHOLDER_IMAGE_URI",
             "essential": true,
             "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
